@@ -292,7 +292,11 @@ export default function Dashboard() {
         <View style={styles.bottomNavPlaceholder}>
           <Text style={styles.placeholderText}>More features coming soon...</Text>
           <View style={styles.navButtons}>
-            <TouchableOpacity style={styles.navButton}>
+            <TouchableOpacity 
+              style={styles.navButton}
+              onPress={() => router.push('/calendar')}
+              activeOpacity={0.7}
+            >
               <Ionicons name="calendar-outline" size={24} color="#8B7355" />
               <Text style={styles.navButtonText}>Calendar</Text>
             </TouchableOpacity>
