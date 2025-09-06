@@ -221,13 +221,72 @@ async def create_couple_account(user: UserCouple):
     await db.users.insert_one(user.dict())
     return user
 
-@api_router.get("/couples/{email}", response_model=UserCouple)
-async def get_user(email: str):
-    """Get user information by email"""
-    user = await db.users.find_one({"email": email})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return UserCouple(**user)
+@api_router.get("/couple-data/{couple_id}/calendar/{year}/{month}")
+async def get_calendar_data(couple_id: str, year: int, month: int):
+    """Get calendar data for a specific month showing activity completions"""
+    couple_data = await db.couple_data.find_one({"couple_id": couple_id})
+    
+    if not couple_data:
+        raise HTTPException(status_code=404, detail="Couple data not found")
+    
+    # Get activity history for the specified month
+    activity_history = couple_data.get("activity_history", [])
+    
+    # Filter activities for the specified month/year
+    month_activities = []
+    for activity in activity_history:
+        activity_date = datetime.fromisoformat(activity["completed_date"]).date() if isinstance(activity["completed_date"], str) else activity["completed_date"]
+        if activity_date.year == year and activity_date.month == month:
+            month_activities.append({
+                "date": activity_date.isoformat(),
+                "activity_type": activity["activity_type"],
+                "activity_title": activity["activity_title"],
+                "completed_at": activity["completed_at"]
+            })
+    
+    # Calculate activity density for heatmap (activities per day)
+    activity_density = {}
+    for activity in month_activities:
+        date_key = activity["date"]
+        if date_key not in activity_density:
+            activity_density[date_key] = []
+        activity_density[date_key].append(activity)
+    
+    return {
+        "year": year,
+        "month": month,
+        "activities": month_activities,
+        "activity_density": activity_density,
+        "total_activities": len(month_activities)
+    }
+
+@api_router.get("/couple-data/{couple_id}/calendar/{year}/{month}/{day}")
+async def get_day_activities(couple_id: str, year: int, month: int, day: int):
+    """Get all activities completed on a specific day"""
+    couple_data = await db.couple_data.find_one({"couple_id": couple_id})
+    
+    if not couple_data:
+        raise HTTPException(status_code=404, detail="Couple data not found")
+    
+    target_date = date(year, month, day)
+    activity_history = couple_data.get("activity_history", [])
+    
+    # Filter activities for the specific day
+    day_activities = []
+    for activity in activity_history:
+        activity_date = datetime.fromisoformat(activity["completed_date"]).date() if isinstance(activity["completed_date"], str) else activity["completed_date"]
+        if activity_date == target_date:
+            day_activities.append({
+                "activity_type": activity["activity_type"],
+                "activity_title": activity["activity_title"],
+                "completed_at": activity["completed_at"]
+            })
+    
+    return {
+        "date": target_date.isoformat(),
+        "activities": day_activities,
+        "activity_count": len(day_activities)
+    }
 
 # Include the router in the main app
 app.include_router(api_router)
