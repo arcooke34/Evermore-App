@@ -45,6 +45,12 @@ class Activity(BaseModel):
     completed: bool = False
     completed_at: Optional[datetime] = None
 
+class ActivityEntry(BaseModel):
+    activity_type: str  # 'dailyRitual', 'weeklyGesture', 'monthlyBigGesture'
+    activity_title: str
+    completed_date: date
+    completed_at: datetime
+
 class CoupleData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     couple_id: str
@@ -55,6 +61,7 @@ class CoupleData(BaseModel):
     daily_ritual: Activity
     weekly_gesture: Activity  
     monthly_big_gesture: Activity
+    activity_history: List[ActivityEntry] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class ActivityCompletion(BaseModel):
