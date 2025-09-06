@@ -256,6 +256,7 @@ export default function Dashboard() {
             activity={activities.dailyRitual}
             onComplete={() => completeActivity('dailyRitual')}
             cardColor="#F5F3F0"
+            loading={loading}
           />
           
           <ActivityCard
@@ -264,6 +265,7 @@ export default function Dashboard() {
             activity={activities.weeklyGesture}
             onComplete={() => completeActivity('weeklyGesture')}
             cardColor="#F8F5F4"
+            loading={loading}
           />
           
           <ActivityCard
@@ -272,6 +274,7 @@ export default function Dashboard() {
             activity={activities.monthlyBigGesture}
             onComplete={() => completeActivity('monthlyBigGesture')}
             cardColor="#F6F8F6"
+            loading={loading}
           />
         </View>
 
