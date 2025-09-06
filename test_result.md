@@ -107,27 +107,33 @@ user_problem_statement: "Build Evermore mobile app - couples intimacy app with b
 backend:
   - task: "Evermore API Models and Endpoints"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"  
         comment: "Created comprehensive Evermore backend with MongoDB models for UserCouple, Progress, Activity, CoupleData. Implemented API endpoints for /couple-data/{couple_id} GET, /couple-data/{couple_id}/complete-activity POST, /couples POST/GET. Includes progress tracking, tree growth calculation, streak management, and default activities."
+      - working: true
+        agent: "testing"
+        comment: "✅ ALL API ENDPOINTS WORKING PERFECTLY: Tested GET /api/couple-data/{couple_id} (creates default data correctly), POST /api/couples (creates accounts with UUIDs), GET /api/couples/{email} (retrieves user info), proper error handling for invalid requests (400/404), and data persistence in MongoDB. All endpoints responding correctly via https://bond-tree.preview.emergentagent.com/api"
 
   - task: "Activity Completion System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented activity completion logic with proper progress increases (daily: 0.5/0.3/0.2, weekly: 1.0/1.5/1.0, monthly: 2.0/3.0/2.5), tree growth (3/8/15), streak tracking for daily activities, and MongoDB persistence."
+      - working: true
+        agent: "testing"
+        comment: "✅ ACTIVITY COMPLETION SYSTEM FULLY FUNCTIONAL: Verified exact progress increases - dailyRitual (+0.5/0.3/0.2, tree +3, streak +1), weeklyGesture (+1.0/1.5/1.0, tree +8), monthlyBigGesture (+2.0/3.0/2.5, tree +15). Progress and tree growth properly cap at 100%. Cumulative progress tracking works correctly. Data persists between API calls. Streak calculation working for daily activities."
 
 frontend:
   - task: "Dashboard with Bonsai Tree Visualization"
