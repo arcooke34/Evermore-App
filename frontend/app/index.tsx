@@ -19,6 +19,9 @@ import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
+// Get the backend URL from environment
+const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+
 interface Progress {
   communication: number;
   intimacy: number;
@@ -68,12 +71,52 @@ export default function Dashboard() {
       completed: false,
     },
   });
+  const [loading, setLoading] = useState(false);
+  const [coupleId, setCoupleId] = useState<string>("demo-couple-123"); // Demo couple ID for MVP
 
   useEffect(() => {
-    loadData();
+    loadCoupleData();
   }, []);
 
-  const loadData = async () => {
+  const loadCoupleData = async () => {
+    try {
+      setLoading(true);
+      
+      // First try to get couple ID from storage, or use demo ID
+      const storedCoupleId = await AsyncStorage.getItem('evermore_couple_id');
+      const activeCoupleId = storedCoupleId || coupleId;
+      
+      if (!storedCoupleId) {
+        await AsyncStorage.setItem('evermore_couple_id', coupleId);
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/couple-data/${activeCoupleId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProgress(data.progress);
+        setTreeGrowth(data.tree_growth);
+        setStreak(data.streak);
+        setActivities({
+          dailyRitual: data.daily_ritual,
+          weeklyGesture: data.weekly_gesture,
+          monthlyBigGesture: data.monthly_big_gesture,
+        });
+      } else {
+        console.error('Failed to load couple data');
+        // Fall back to local storage for offline mode
+        await loadLocalData();
+      }
+    } catch (error) {
+      console.error('Error loading couple data:', error);
+      // Fall back to local storage for offline mode
+      await loadLocalData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLocalData = async () => {
     try {
       const savedProgress = await AsyncStorage.getItem('evermore_progress');
       const savedStreak = await AsyncStorage.getItem('evermore_streak');
@@ -85,49 +128,100 @@ export default function Dashboard() {
       if (savedActivities) setActivities(JSON.parse(savedActivities));
       if (savedTreeGrowth) setTreeGrowth(parseFloat(savedTreeGrowth));
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading local data:', error);
     }
   };
 
-  const saveData = async (newProgress: Progress, newStreak: number, newActivities: ActivityData, newTreeGrowth: number) => {
+  const saveLocalData = async (newProgress: Progress, newStreak: number, newActivities: ActivityData, newTreeGrowth: number) => {
     try {
       await AsyncStorage.setItem('evermore_progress', JSON.stringify(newProgress));
       await AsyncStorage.setItem('evermore_streak', newStreak.toString());
       await AsyncStorage.setItem('evermore_activities', JSON.stringify(newActivities));
       await AsyncStorage.setItem('evermore_tree_growth', newTreeGrowth.toString());
     } catch (error) {
-      console.error('Error saving data:', error);
+      console.error('Error saving local data:', error);
     }
   };
 
   const completeActivity = async (activityType: keyof ActivityData) => {
-    const newActivities = { ...activities };
-    newActivities[activityType].completed = true;
+    if (loading) return;
+    
+    try {
+      setLoading(true);
+      
+      // Try to complete activity via API
+      const response = await fetch(`${BACKEND_URL}/api/couple-data/${coupleId}/complete-activity`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          activity_type: activityType,
+        }),
+      });
 
-    // Calculate progress increases
-    const progressIncrease = {
-      dailyRitual: { communication: 0.5, intimacy: 0.3, trust: 0.2 },
-      weeklyGesture: { communication: 1.0, intimacy: 1.5, trust: 1.0 },
-      monthlyBigGesture: { communication: 2.0, intimacy: 3.0, trust: 2.5 },
-    };
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update local state with server response
+        const newActivities = { ...activities };
+        newActivities[activityType].completed = true;
+        
+        setActivities(newActivities);
+        setProgress(result.new_progress);
+        setTreeGrowth(result.tree_growth);
+        setStreak(result.streak);
 
-    const increase = progressIncrease[activityType];
-    const newProgress = {
-      communication: Math.min(100, progress.communication + increase.communication),
-      intimacy: Math.min(100, progress.intimacy + increase.intimacy),
-      trust: Math.min(100, progress.trust + increase.trust),
-    };
+        // Also save locally as backup
+        await saveLocalData(result.new_progress, result.streak, newActivities, result.tree_growth);
 
-    // Update tree growth and streak
-    const newTreeGrowth = Math.min(100, treeGrowth + (activityType === 'monthlyBigGesture' ? 15 : activityType === 'weeklyGesture' ? 8 : 3));
-    const newStreak = activityType === 'dailyRitual' ? streak + 1 : streak;
+        Alert.alert(
+          "Activity Completed! 🌱", 
+          `Great job! Your bonsai tree is growing and your connection is strengthening.`,
+          [{ text: "Amazing!", style: "default" }]
+        );
+      } else {
+        throw new Error('Failed to complete activity');
+      }
+    } catch (error) {
+      console.error('Error completing activity:', error);
+      
+      // Fall back to local completion
+      const newActivities = { ...activities };
+      newActivities[activityType].completed = true;
 
-    setActivities(newActivities);
-    setProgress(newProgress);
-    setTreeGrowth(newTreeGrowth);
-    setStreak(newStreak);
+      // Calculate progress increases (same logic as backend)
+      const progressIncrease = {
+        dailyRitual: { communication: 0.5, intimacy: 0.3, trust: 0.2 },
+        weeklyGesture: { communication: 1.0, intimacy: 1.5, trust: 1.0 },
+        monthlyBigGesture: { communication: 2.0, intimacy: 3.0, trust: 2.5 },
+      };
 
-    await saveData(newProgress, newStreak, newActivities, newTreeGrowth);
+      const increase = progressIncrease[activityType];
+      const newProgress = {
+        communication: Math.min(100, progress.communication + increase.communication),
+        intimacy: Math.min(100, progress.intimacy + increase.intimacy),
+        trust: Math.min(100, progress.trust + increase.trust),
+      };
+
+      const newTreeGrowth = Math.min(100, treeGrowth + (activityType === 'monthlyBigGesture' ? 15 : activityType === 'weeklyGesture' ? 8 : 3));
+      const newStreak = activityType === 'dailyRitual' ? streak + 1 : streak;
+
+      setActivities(newActivities);
+      setProgress(newProgress);
+      setTreeGrowth(newTreeGrowth);
+      setStreak(newStreak);
+
+      await saveLocalData(newProgress, newStreak, newActivities, newTreeGrowth);
+
+      Alert.alert(
+        "Activity Completed! 🌱", 
+        "Great job! Your progress has been saved locally.",
+        [{ text: "Amazing!", style: "default" }]
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
