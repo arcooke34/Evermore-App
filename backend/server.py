@@ -167,7 +167,7 @@ async def complete_activity(couple_id: str, completion: ActivityCompletion):
         last_activity = couple_data.get("last_activity_date")
         if last_activity:
             last_date = datetime.fromisoformat(last_activity).date() if isinstance(last_activity, str) else last_activity
-            if today == last_date + datetime.timedelta(days=1):
+            if today == last_date + timedelta(days=1):
                 new_streak += 1
             elif today == last_date:
                 pass  # Same day, don't change streak
