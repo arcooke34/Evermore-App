@@ -176,12 +176,24 @@ async def complete_activity(couple_id: str, completion: ActivityCompletion):
         else:
             new_streak = 1
     
-    # Mark activity as completed
+    # Mark activity as completed and add to history
+    activity_entry = ActivityEntry(
+        activity_type=activity_type,
+        activity_title=couple_data[activity_type]["title"],
+        completed_date=today,
+        completed_at=datetime.utcnow()
+    )
+    
+    # Get current activity history or initialize empty list
+    activity_history = couple_data.get("activity_history", [])
+    activity_history.append(activity_entry.dict())
+    
     update_data = {
         "progress": new_progress,
         "tree_growth": new_tree_growth,
         "streak": new_streak,
         "last_activity_date": today.isoformat(),
+        "activity_history": activity_history,
         "updated_at": datetime.utcnow(),
         f"{activity_type}.completed": True,
         f"{activity_type}.completed_at": datetime.utcnow()
