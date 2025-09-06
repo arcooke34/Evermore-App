@@ -178,9 +178,11 @@ async def complete_activity(couple_id: str, completion: ActivityCompletion):
             new_streak = 1
     
     # Mark activity as completed and add to history
+    activity_title = couple_data.get(activity_type, {}).get("title", "Activity")
+    
     activity_entry = ActivityEntry(
         activity_type=activity_type,
-        activity_title=couple_data[activity_type]["title"],
+        activity_title=activity_title,
         completed_date=today,
         completed_at=datetime.utcnow()
     )
