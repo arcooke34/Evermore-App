@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +15,7 @@ import BonsaiTree from '../components/BonsaiTree';
 import ProgressBar from '../components/ProgressBar';
 import ActivityCard from '../components/ActivityCard';
 import StreakCounter from '../components/StreakCounter';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
