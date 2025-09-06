@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,9 +6,9 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional, Dict
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 
 
 ROOT_DIR = Path(__file__).parent
@@ -26,31 +26,189 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 
-# Define Models
-class StatusCheck(BaseModel):
+# Define Evermore Models
+class UserCouple(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    email: str
+    partner_email: Optional[str] = None
+    couple_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class Progress(BaseModel):
+    communication: float = 0.0
+    intimacy: float = 0.0
+    trust: float = 0.0
 
-# Add your routes to the router instead of directly to app
+class Activity(BaseModel):
+    title: str
+    description: str
+    completed: bool = False
+    completed_at: Optional[datetime] = None
+
+class CoupleData(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    couple_id: str
+    progress: Progress = Field(default_factory=Progress)
+    tree_growth: float = 0.0
+    streak: int = 0
+    last_activity_date: Optional[date] = None
+    daily_ritual: Activity
+    weekly_gesture: Activity  
+    monthly_big_gesture: Activity
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ActivityCompletion(BaseModel):
+    activity_type: str  # 'dailyRitual', 'weeklyGesture', 'monthlyBigGesture'
+
+class CoupleDataResponse(BaseModel):
+    progress: Progress
+    tree_growth: float
+    streak: int
+    daily_ritual: Activity
+    weekly_gesture: Activity
+    monthly_big_gesture: Activity
+
+# Default activities
+DEFAULT_ACTIVITIES = {
+    "daily_ritual": Activity(
+        title="2-Minute Gratitude Hug",
+        description="Share a warm, mindful hug while expressing one thing you're grateful for about each other"
+    ),
+    "weekly_gesture": Activity(
+        title="Cook Together", 
+        description="Prepare a meal together, trying a new recipe or recreating a favorite dish"
+    ),
+    "monthly_big_gesture": Activity(
+        title="Plan Weekend Adventure",
+        description="Design and plan a special weekend activity that you both will enjoy"
+    )
+}
+
+# Evermore API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Evermore API - Nurturing Love Through Action"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+@api_router.get("/couple-data/{couple_id}", response_model=CoupleDataResponse)
+async def get_couple_data(couple_id: str):
+    """Get couple's progress, activities, and tree growth"""
+    couple_data = await db.couple_data.find_one({"couple_id": couple_id})
+    
+    if not couple_data:
+        # Create new couple data with default activities
+        new_couple_data = CoupleData(
+            couple_id=couple_id,
+            daily_ritual=DEFAULT_ACTIVITIES["daily_ritual"],
+            weekly_gesture=DEFAULT_ACTIVITIES["weekly_gesture"],
+            monthly_big_gesture=DEFAULT_ACTIVITIES["monthly_big_gesture"]
+        )
+        await db.couple_data.insert_one(new_couple_data.dict())
+        couple_data = new_couple_data.dict()
+    
+    return CoupleDataResponse(
+        progress=Progress(**couple_data["progress"]),
+        tree_growth=couple_data["tree_growth"],
+        streak=couple_data["streak"],
+        daily_ritual=Activity(**couple_data["daily_ritual"]),
+        weekly_gesture=Activity(**couple_data["weekly_gesture"]),
+        monthly_big_gesture=Activity(**couple_data["monthly_big_gesture"])
+    )
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.post("/couple-data/{couple_id}/complete-activity")
+async def complete_activity(couple_id: str, completion: ActivityCompletion):
+    """Mark an activity as complete and update progress"""
+    couple_data = await db.couple_data.find_one({"couple_id": couple_id})
+    
+    if not couple_data:
+        raise HTTPException(status_code=404, detail="Couple data not found")
+    
+    # Progress increases for different activities
+    progress_increases = {
+        "dailyRitual": {"communication": 0.5, "intimacy": 0.3, "trust": 0.2},
+        "weeklyGesture": {"communication": 1.0, "intimacy": 1.5, "trust": 1.0},
+        "monthlyBigGesture": {"communication": 2.0, "intimacy": 3.0, "trust": 2.5}
+    }
+    
+    # Tree growth increases
+    tree_growth_increases = {
+        "dailyRitual": 3,
+        "weeklyGesture": 8, 
+        "monthlyBigGesture": 15
+    }
+    
+    activity_type = completion.activity_type
+    if activity_type not in progress_increases:
+        raise HTTPException(status_code=400, detail="Invalid activity type")
+    
+    # Update progress
+    current_progress = couple_data["progress"]
+    increase = progress_increases[activity_type]
+    
+    new_progress = {
+        "communication": min(100, current_progress["communication"] + increase["communication"]),
+        "intimacy": min(100, current_progress["intimacy"] + increase["intimacy"]),
+        "trust": min(100, current_progress["trust"] + increase["trust"])
+    }
+    
+    # Update tree growth
+    new_tree_growth = min(100, couple_data["tree_growth"] + tree_growth_increases[activity_type])
+    
+    # Update streak (only for daily ritual)
+    new_streak = couple_data["streak"]
+    today = date.today()
+    if activity_type == "dailyRitual":
+        last_activity = couple_data.get("last_activity_date")
+        if last_activity:
+            last_date = datetime.fromisoformat(last_activity).date() if isinstance(last_activity, str) else last_activity
+            if today == last_date + datetime.timedelta(days=1):
+                new_streak += 1
+            elif today == last_date:
+                pass  # Same day, don't change streak
+            else:
+                new_streak = 1  # Reset streak
+        else:
+            new_streak = 1
+    
+    # Mark activity as completed
+    update_data = {
+        "progress": new_progress,
+        "tree_growth": new_tree_growth,
+        "streak": new_streak,
+        "last_activity_date": today.isoformat(),
+        "updated_at": datetime.utcnow(),
+        f"{activity_type}.completed": True,
+        f"{activity_type}.completed_at": datetime.utcnow()
+    }
+    
+    await db.couple_data.update_one(
+        {"couple_id": couple_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Activity completed successfully", "new_progress": new_progress, "tree_growth": new_tree_growth, "streak": new_streak}
+
+@api_router.post("/couples", response_model=UserCouple)
+async def create_couple_account(user: UserCouple):
+    """Create a new couple account"""
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": user.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate couple_id if not provided
+    if not user.couple_id:
+        user.couple_id = str(uuid.uuid4())
+    
+    await db.users.insert_one(user.dict())
+    return user
+
+@api_router.get("/couples/{email}", response_model=UserCouple)
+async def get_user(email: str):
+    """Get user information by email"""
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserCouple(**user)
 
 # Include the router in the main app
 app.include_router(api_router)
