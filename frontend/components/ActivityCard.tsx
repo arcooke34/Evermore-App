@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Activity {
@@ -14,9 +14,10 @@ interface ActivityCardProps {
   activity: Activity;
   onComplete: () => void;
   cardColor: string;
+  loading?: boolean;
 }
 
-export default function ActivityCard({ icon, title, activity, onComplete, cardColor }: ActivityCardProps) {
+export default function ActivityCard({ icon, title, activity, onComplete, cardColor, loading = false }: ActivityCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: cardColor }]}>
       <View style={styles.header}>
@@ -34,11 +35,16 @@ export default function ActivityCard({ icon, title, activity, onComplete, cardCo
       
       {!activity.completed && (
         <TouchableOpacity 
-          style={styles.completeButton} 
+          style={[styles.completeButton, loading && styles.disabledButton]} 
           onPress={onComplete}
           activeOpacity={0.7}
+          disabled={loading}
         >
-          <Text style={styles.completeButtonText}>Mark Complete</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.completeButtonText}>Mark Complete</Text>
+          )}
         </TouchableOpacity>
       )}
       
