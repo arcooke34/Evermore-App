@@ -109,6 +109,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: 'center',
   },
+  disabledButton: {
+    backgroundColor: '#B0A291',
+    opacity: 0.7,
+  },
   completeButtonText: {
     color: '#FFF',
     fontSize: 16,
