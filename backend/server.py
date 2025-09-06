@@ -288,6 +288,14 @@ async def get_day_activities(couple_id: str, year: int, month: int, day: int):
         "activity_count": len(day_activities)
     }
 
+@api_router.get("/couples/{email}", response_model=UserCouple)
+async def get_user(email: str):
+    """Get user information by email"""
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserCouple(**user)
+
 # Include the router in the main app
 app.include_router(api_router)
 
