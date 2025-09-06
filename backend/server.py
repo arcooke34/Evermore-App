@@ -74,6 +74,7 @@ class CoupleDataResponse(BaseModel):
     daily_ritual: Activity
     weekly_gesture: Activity
     monthly_big_gesture: Activity
+    activity_history: List[ActivityEntry] = Field(default_factory=list)
 
 # Default activities
 DEFAULT_ACTIVITIES = {
