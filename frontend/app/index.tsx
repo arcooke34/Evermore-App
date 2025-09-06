@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import BonsaiTree from '../components/BonsaiTree';
 import ProgressBar from '../components/ProgressBar';
 import ActivityCard from '../components/ActivityCard';
