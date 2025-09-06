@@ -119,7 +119,8 @@ async def get_couple_data(couple_id: str):
         streak=couple_data["streak"],
         daily_ritual=Activity(**couple_data["daily_ritual"]),
         weekly_gesture=Activity(**couple_data["weekly_gesture"]),
-        monthly_big_gesture=Activity(**couple_data["monthly_big_gesture"])
+        monthly_big_gesture=Activity(**couple_data["monthly_big_gesture"]),
+        activity_history=[ActivityEntry(**entry) for entry in couple_data.get("activity_history", [])]
     )
 
 @api_router.post("/couple-data/{couple_id}/complete-activity")
